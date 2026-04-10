@@ -54,43 +54,37 @@ app.get("/", (req, res) => {
   res.json({ status: "Backend running" });
 });
 
-app.options("/generate, cors());"
+app.options("/generate, cors());" 
 
-app.post("/generate", async (req, res) => {
+app.post("/generate", cors(), async (req, res) => {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+
   try {
-    console.log("STEP 1: request received");
+    const { topic, voice, template } = req.body;
 
-    const topic = req.body?.topic || req.body?.prompt || "";
-
-    if (!topic.trim()) {
-      return res.status(400).json({
-        error: "Missing topic",
-      });
+    if (!topic) {
+      return res.status(400).json({ error: "Topic is required" });
     }
 
-    const lowerTopic = topic.toLowerCase();
-
-    let voiceId = "qSeXEcewz7tA0Q0qk9fH";
-
-    if (lowerTopic.includes("love")) {
-      voiceId = "EXAVITQu4vr4xnSDxMaL";
-    } else if (
-      lowerTopic.includes("gym") ||
-      lowerTopic.includes("business")
-    ) {
-      voiceId = "TxGEqnHWrfWFTfGW9XjX";
-    }
-
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [
-        {
-          role: "user",
-          content: `Write a short viral faceless reel script about ${topic}. Keep it powerful and motivational.`,
-        },
-      ],
+    // Example starter response (safe test mode)
+    // Replace this later with your OpenAI + ffmpeg logic
+    return res.json({
+      success: true,
+      message: "Generate route is working",
+      topic,
+      voice,
+      template
     });
 
+  } catch (error) {
+    console.error("Generate route error:", error);
+    return res.status(500).json({
+      error: "Failed to generate reel"
+    });
+  }
+});
     console.log("STEP 2: script generated");
 
     const script =
