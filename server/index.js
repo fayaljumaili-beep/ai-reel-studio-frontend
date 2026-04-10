@@ -62,9 +62,6 @@ app.post("/generate", async (req, res) => {
     });
   }
 });
-✅ ALSO ADD THIS RIGHT ABOVE IT
-
-Place this above the POST route:
 
 app.options("/generate", (req, res) => {
   res.header("Access-Control-Allow-Origin", "*");
@@ -72,24 +69,6 @@ app.options("/generate", (req, res) => {
   res.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
   return res.sendStatus(200);
 });
-🚀 THEN PUSH IMMEDIATELY
-
-Run:
-
-git add server/index.js
-git commit -m "force cors headers inside generate route"
-git push origin main
-🎯 WHY THIS SHOULD FINALLY WORK
-
-Your middleware CORS is probably loading, but Railway’s proxy/preflight path is stripping it.
-
-By setting the headers inside both OPTIONS and POST, we force the browser-required headers on the exact route being called.
-
-This usually kills the final stubborn CORS issue.
-
-After Railway turns green, test the newest Vercel deployment again.
-
-This should be the real last fix 🚀
 
 /**
  * Railway server start
