@@ -1,90 +1,130 @@
-const express = require("express");
-const cors = require("cors");
-const fs = require("fs");
-const path = require("path");
-const OpenAI = require("openai");
+import dotenv from "dotenv";
+import express from "express";
+import cors from "cors";
+import OpenAI from "openai";
+import ffmpeg from "fluent-ffmpeg";
+import ffmpegPath from "ffmpeg-static";
+import fs from "fs";
+import path from "path";
+
+dotenv.config();
+
+ffmpeg.setFfmpegPath(ffmpegPath);
 
 const app = express();
+const port = process.env.PORT || 8080;
 
 app.use(cors());
 app.use(express.json());
 
+console.log("KEY EXISTS:", !!process.env.OPENAI_API_KEY);
+
 const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY
+  apiKey: process.env.OPENAI_API_KEY,
 });
 
-
-// 🎯 GENERATE SCRIPT (NOW RETURNS SCENE JSON)
+// ✨ SCRIPT GENERATION
 app.post("/generate", async (req, res) => {
   try {
     const { topic, voice, template } = req.body;
 
     const prompt = `
-Create a viral faceless reel script about: ${topic}
-Style: ${voice}
+You are an elite viral faceless reel scriptwriter.
+
+Create a premium short-form reel script about:
+Topic: ${topic}
+Voice: ${voice}
 Template: ${template}
 
-Make it:
-- strong hook (1 line)
-- 4 short punchy body lines
-- strong CTA (last line)
-
-Each line on a new line.
+Return JSON:
+{
+  "hook": "string",
+  "scenes": ["scene 1", "scene 2", "scene 3"],
+  "cta": "string"
+}
 `;
 
     const completion = await openai.chat.completions.create({
       model: "gpt-4o-mini",
-      messages: [{ role: "user", content: prompt }]
+      messages: [{ role: "user", content: prompt }],
+      response_format: { type: "json_object" },
     });
 
-    const script = completion.choices[0].message.content;
-
-    const lines = script
-      .split("\n")
-      .map(line => line.trim())
-      .filter(Boolean);
-
-    const hook = lines[0] || "";
-    const cta = lines[lines.length - 1] || "";
-    const scenes = lines.slice(1, -1);
-
-    res.json({
-      hook,
-      scenes,
-      cta,
-      fullScript: script
-    });
-
+    const result = completion.choices[0].message.content;
+    res.json(JSON.parse(result || "{}"));
   } catch (error) {
-    console.error("❌ Generate error:", error);
+    console.error(error);
     res.status(500).json({ error: "Failed to generate script" });
   }
 });
 
-
-// 🎬 VIDEO DOWNLOAD (SAMPLE FOR NOW)
-app.post("/generate-video", (req, res) => {
+// 🎙️ VOICE MP3
+app.post("/generate-voice", async (req, res) => {
   try {
-    const filePath = path.join(__dirname, "sample.mp4");
+    const { text } = req.body;
 
-    if (!fs.existsSync(filePath)) {
-      return res.status(500).json({
-        error: "sample.mp4 missing in server folder"
-      });
+    if (!text) {
+      return res.status(400).json({ error: "Text is required" });
     }
 
-    return res.download(filePath, "viral-reel.mp4");
+    const mp3 = await openai.audio.speech.create({
+      model: "gpt-4o-mini-tts",
+      voice: "alloy",
+      input: text,
+    });
 
+    const buffer = Buffer.from(await mp3.arrayBuffer());
+
+    res.setHeader("Content-Type", "audio/mpeg");
+    res.setHeader(
+      "Content-Disposition",
+      'attachment; filename="voiceover.mp3"'
+    );
+
+    res.send(buffer);
   } catch (error) {
-    console.error("❌ Video error:", error);
+    console.error(error);
+    res.status(500).json({ error: "Failed to generate voice" });
+  }
+});
+
+// 🎬 NARRATED MP4 EXPORT
+app.post("/generate-video", async (req, res) => {
+  try {
+    const { text } = req.body;
+
+    const sampleVideoPath = path.join(process.cwd(), "sample.mp4");
+    const audioPath = path.join(process.cwd(), "voiceover.mp3");
+    const outputPath = path.join(process.cwd(), "final-reel.mp4");
+
+    const mp3 = await openai.audio.speech.create({
+      model: "gpt-4o-mini-tts",
+      voice: "alloy",
+      input: text || "This is your AI generated faceless reel.",
+    });
+
+    const audioBuffer = Buffer.from(await mp3.arrayBuffer());
+    fs.writeFileSync(audioPath, audioBuffer);
+
+    ffmpeg(sampleVideoPath)
+      .input(audioPath)
+      .videoCodec("libx264")
+      .audioCodec("aac")
+      .outputOptions(["-movflags", "+faststart", "-shortest"])
+      .save(outputPath)
+      .on("end", () => {
+        res.download(outputPath, "viral-reel.mp4");
+      })
+      .on("error", (err) => {
+        console.error(err);
+        res.status(500).json({ error: "FFmpeg merge failed" });
+      });
+  } catch (error) {
+    console.error(error);
     res.status(500).json({ error: "Video generation failed" });
   }
 });
 
-
-// 🚀 START SERVER
-const PORT = process.env.PORT || 8080;
-
-app.listen(PORT, () => {
-  console.log(`✅ Server running on port ${PORT}`);
+app.listen(port, () => {
+  console.log(`🚀 Server running on port ${port}`);
 });
