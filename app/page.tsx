@@ -7,7 +7,7 @@ export default function Home() {
   const [script, setScript] = useState("");
   const [audioUrl, setAudioUrl] = useState("");
 
-  const API = "https://ai-reel-studio-frontend-production.up.railway.app/";
+  const API = "https://ai-reel-studio-frontend-production.up.railway.app";
 
   async function generateScript() {
     const res = await fetch(`${API}/generate`, {
