@@ -81,7 +81,7 @@ app.post("/generate-voice", async (req, res) => {
 
 app.post("/generate-video", async (req, res) => {
   try {
-    const sampleVideoPath = path.join(process.cwd(), "server", "sample.mp4");
+    const sampleVideoPath = path.join(process.cwd(), "sample.mp4");
     const audioPath = path.join(process.cwd(), "voiceover.mp3");
     const outputPath = path.join(process.cwd(), "final-reel.mp4");
 
