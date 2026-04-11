@@ -9,8 +9,6 @@ import path from "path";
 dotenv.config();
 
 const app = express();
-const port = process.env.PORT || 8080;
-
 app.use(cors());
 app.use(express.json());
 
@@ -18,42 +16,35 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
-app.get("/", (req, res) => {
-  res.send("AI Reel backend live 🚀");
-});
-
 app.post("/generate", async (req, res) => {
   try {
-    const { topic, tone, niche } = req.body;
+    const { topic } = req.body;
 
     const prompt = `
-Create a short viral faceless reel script.
+Create a short viral faceless reel script about: "${topic}"
 
-Topic: ${topic}
-Tone: ${tone}
-Niche: ${niche}
+Format:
+HOOK
+SCENES (3 short scenes)
+CTA
+VOICEOVER
 
-Return JSON in this exact shape:
-{
-  "hook": "",
-  "scenes": ["", "", ""],
-  "cta": ""
-}
+Make it punchy, motivational, and TikTok style.
 `;
 
-    const completion = await openai.chat.completions.create({
+    const response = await openai.chat.completions.create({
       model: "gpt-4o-mini",
       messages: [{ role: "user", content: prompt }],
     });
 
-    const raw = completion.choices[0].message.content;
-    const cleaned = raw.replace(/```json|```/g, "").trim();
-    const parsed = JSON.parse(cleaned);
-
-    res.json(parsed);
+    const script = response.choices[0].message.content;
+    res.json({ script });
   } catch (error) {
-    console.error("Script generation error:", error);
-    res.status(500).json({ error: "Failed to generate script" });
+    console.error("❌ Script generation error:", error);
+    res.status(500).json({
+      error: "Failed to generate script",
+      details: error.message,
+    });
   }
 });
 
@@ -64,7 +55,7 @@ app.post("/generate-voice", async (req, res) => {
     const mp3 = await openai.audio.speech.create({
       model: "gpt-4o-mini-tts",
       voice: "alloy",
-      input: text,
+      input: text || "This is your AI generated faceless reel.",
     });
 
     const audioBuffer = Buffer.from(await mp3.arrayBuffer());
@@ -72,17 +63,36 @@ app.post("/generate-voice", async (req, res) => {
 
     fs.writeFileSync(audioPath, audioBuffer);
 
-    res.download(audioPath, "voiceover.mp3");
+    res.json({
+      success: true,
+      audioUrl: "/voiceover.mp3",
+    });
   } catch (error) {
-    console.error("Voice generation error:", error);
-    res.status(500).json({ error: "Failed to generate voiceover" });
+    console.error("❌ Voice generation error:", error);
+    res.status(500).json({
+      error: "Voice generation failed",
+      details: error.message,
+    });
   }
+});
+
+app.get("/voiceover.mp3", (req, res) => {
+  const audioPath = path.join(process.cwd(), "voiceover.mp3");
+
+  if (!fs.existsSync(audioPath)) {
+    return res.status(404).json({ error: "Voice file not found" });
+  }
+
+  res.sendFile(audioPath);
 });
 
 app.post("/generate-video", async (req, res) => {
   try {
     const audioPath = path.join(process.cwd(), "voiceover.mp3");
     const outputPath = path.join(process.cwd(), "final-reel.mp4");
+
+    console.log("🎵 audio path:", audioPath);
+    console.log("📦 output path:", outputPath);
 
     ffmpeg()
       .input("color=c=black:s=1080x1920:d=30")
@@ -98,10 +108,20 @@ app.post("/generate-video", async (req, res) => {
       .save(outputPath)
       .on("end", () => {
         console.log("✅ video created:", outputPath);
-        res.download(outputPath, "viral-reel.mp4");
+
+        setTimeout(() => {
+          if (!fs.existsSync(outputPath)) {
+            return res.status(500).json({
+              error: "Output file missing after render",
+            });
+          }
+
+          res.download(outputPath, "viral-reel.mp4");
+        }, 500);
       })
       .on("error", (err, stdout, stderr) => {
         console.error("❌ FFMPEG ERROR:", err.message);
+        console.error("📤 STDOUT:", stdout);
         console.error("📥 STDERR:", stderr);
 
         res.status(500).json({
@@ -117,6 +137,8 @@ app.post("/generate-video", async (req, res) => {
     });
   }
 });
+
+const port = process.env.PORT || 8080;
 app.listen(port, () => {
   console.log(`🚀 Server running on port ${port}`);
 });
