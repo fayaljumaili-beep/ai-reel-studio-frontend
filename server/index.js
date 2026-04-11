@@ -1,15 +1,12 @@
-import dotenv from "dotenv";
 import express from "express";
 import cors from "cors";
+import dotenv from "dotenv";
 import OpenAI from "openai";
 import ffmpeg from "fluent-ffmpeg";
-import ffmpegPath from "ffmpeg-static";
 import fs from "fs";
 import path from "path";
 
 dotenv.config();
-
-ffmpeg.setFfmpegPath(ffmpegPath);
 
 const app = express();
 const port = process.env.PORT || 8080;
@@ -17,55 +14,52 @@ const port = process.env.PORT || 8080;
 app.use(cors());
 app.use(express.json());
 
-console.log("KEY EXISTS:", !!process.env.OPENAI_API_KEY);
-
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
-// ✨ SCRIPT GENERATION
+app.get("/", (req, res) => {
+  res.send("AI Reel backend live 🚀");
+});
+
 app.post("/generate", async (req, res) => {
   try {
-    const { topic, voice, template } = req.body;
+    const { topic, tone, niche } = req.body;
 
     const prompt = `
-You are an elite viral faceless reel scriptwriter.
+Create a short viral faceless reel script.
 
-Create a premium short-form reel script about:
 Topic: ${topic}
-Voice: ${voice}
-Template: ${template}
+Tone: ${tone}
+Niche: ${niche}
 
-Return JSON:
+Return JSON in this exact shape:
 {
-  "hook": "string",
-  "scenes": ["scene 1", "scene 2", "scene 3"],
-  "cta": "string"
+  "hook": "",
+  "scenes": ["", "", ""],
+  "cta": ""
 }
 `;
 
     const completion = await openai.chat.completions.create({
       model: "gpt-4o-mini",
       messages: [{ role: "user", content: prompt }],
-      response_format: { type: "json_object" },
     });
 
-    const result = completion.choices[0].message.content;
-    res.json(JSON.parse(result || "{}"));
+    const raw = completion.choices[0].message.content;
+    const cleaned = raw.replace(/```json|```/g, "").trim();
+    const parsed = JSON.parse(cleaned);
+
+    res.json(parsed);
   } catch (error) {
-    console.error(error);
+    console.error("Script generation error:", error);
     res.status(500).json({ error: "Failed to generate script" });
   }
 });
 
-// 🎙️ VOICE MP3
 app.post("/generate-voice", async (req, res) => {
   try {
     const { text } = req.body;
-
-    if (!text) {
-      return res.status(400).json({ error: "Text is required" });
-    }
 
     const mp3 = await openai.audio.speech.create({
       model: "gpt-4o-mini-tts",
@@ -73,27 +67,28 @@ app.post("/generate-voice", async (req, res) => {
       input: text,
     });
 
-    const buffer = Buffer.from(await mp3.arrayBuffer());
+    const audioBuffer = Buffer.from(await mp3.arrayBuffer());
+    const audioPath = path.join(process.cwd(), "voiceover.mp3");
 
-    res.setHeader("Content-Type", "audio/mpeg");
-    res.setHeader(
-      "Content-Disposition",
-      'attachment; filename="voiceover.mp3"'
-    );
+    fs.writeFileSync(audioPath, audioBuffer);
 
-    res.send(buffer);
+    res.download(audioPath, "voiceover.mp3");
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: "Failed to generate voice" });
+    console.error("Voice generation error:", error);
+    res.status(500).json({ error: "Failed to generate voiceover" });
   }
 });
 
-// 🎬 NARRATED MP4 EXPORT
 app.post("/generate-video", async (req, res) => {
   try {
     const { text } = req.body;
 
-    const sampleVideoPath = path.join(process.cwd(), "sample.mp4");
+    const sampleVideoPath = path.join(
+      process.cwd(),
+      "server",
+      "sample.mp4"
+    );
+
     const audioPath = path.join(process.cwd(), "voiceover.mp3");
     const outputPath = path.join(process.cwd(), "final-reel.mp4");
 
@@ -110,17 +105,21 @@ app.post("/generate-video", async (req, res) => {
       .input(audioPath)
       .videoCodec("libx264")
       .audioCodec("aac")
-      .outputOptions(["-movflags", "+faststart", "-shortest"])
+      .outputOptions([
+        "-pix_fmt yuv420p",
+        "-movflags +faststart",
+        "-shortest",
+      ])
       .save(outputPath)
       .on("end", () => {
         res.download(outputPath, "viral-reel.mp4");
       })
       .on("error", (err) => {
-        console.error(err);
+        console.error("FFmpeg merge error:", err);
         res.status(500).json({ error: "FFmpeg merge failed" });
       });
   } catch (error) {
-    console.error(error);
+    console.error("Video generation error:", error);
     res.status(500).json({ error: "Video generation failed" });
   }
 });
