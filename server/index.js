@@ -133,19 +133,23 @@ app.post("/generate-video", async (req, res) => {
     fs.writeFileSync(audioPath, voiceBuffer);
 
     await new Promise((resolve, reject) => {
-      ffmpeg()
-        .input(clipPath)
-        .input(audioPath)
-        .videoCodec("libx264")
-        .audioCodec("aac")
-        .outputOptions([
-  "-preset ultrafast",
-  "-pix_fmt yuv420p",
-  "-movflags +faststart",
-  "-shortest",
-  "-vf",
-  "scale=720:1280:force_original_aspect_ratio=increase,crop=720:1280,drawtext=fontfile=/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf:text='Success starts now':fontcolor=white:fontsize=54:x=(w-text_w)/2:y=h-220"
-])
+  ffmpeg()
+    .input(videoUrl)
+    .input(audioPath)
+    .videoCodec("libx264")
+    .audioCodec("aac")
+    .outputOptions([
+      "-preset ultrafast",
+      "-pix_fmt yuv420p",
+      "-movflags +faststart",
+      "-shortest",
+      "-vf",
+      "scale=720:1280:force_original_aspect_ratio=increase,crop=720:1280,drawtext=fontfile=/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf:text='Success starts now':fontcolor=white:fontsize=54:x=(w-text_w)/2:y=h-220"
+    ])
+    .save(outputPath)
+    .on("end", resolve)
+    .on("error", reject);
+});
 
     return res.download(outputPath);
   } catch (error) {
