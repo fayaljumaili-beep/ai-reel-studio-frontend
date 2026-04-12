@@ -57,6 +57,12 @@ app.post("/generate-voice", async (req, res) => {
   try {
     const { script } = req.body;
 
+    if (!script || !script.trim()) {
+      return res.status(400).json({
+        error: "Missing script input",
+      });
+    }
+
     const speech = await openai.audio.speech.create({
       model: "gpt-4o-mini-tts",
       voice: "alloy",
@@ -71,7 +77,6 @@ app.post("/generate-voice", async (req, res) => {
     res.json({
       success: true,
       audioUrl: "/voiceover.mp3",
-      audioPath,
       bytes: audioBuffer.length,
     });
   } catch (error) {
@@ -82,7 +87,6 @@ app.post("/generate-voice", async (req, res) => {
     });
   }
 });
-
 app.post("/generate-video", async (req, res) => {
   try {
     const { script = "", captionText } = req.body;
