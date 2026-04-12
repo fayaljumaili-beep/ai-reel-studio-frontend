@@ -129,35 +129,42 @@ app.post("/generate-video", async (req, res) => {
     }
 
     ffmpeg()
-      .input(audioPath)
       .input("color=c=black:s=1080x1920:r=30")
       .inputFormat("lavfi")
+      .input(audioPath)
+      .videoCodec("libx264")
+      .audioCodec("aac")
       .outputOptions([
         "-t 8",
         "-shortest",
-        "-c:v libx264",
-        "-preset veryfast",
         "-pix_fmt yuv420p",
         "-movflags +faststart",
-        "-c:a aac",
-        "-b:a 192k"
+        "-preset veryfast",
       ])
-      .save(outputPath)
+      .output(outputPath)
       .on("end", () => {
-        console.log("✅ REAL MP4 finished");
+        console.log("✅ FINAL REAL MP4 READY");
+
+        if (!fs.existsSync(outputPath)) {
+          return res.status(500).json({
+            error: "MP4 file missing after render",
+          });
+        }
+
         return res.download(outputPath, "viral-reel.mp4");
       })
       .on("error", (err) => {
-        console.error("FFMPEG FINAL ERROR:", err);
+        console.error("FFMPEG FINAL REAL ERROR:", err);
         return res.status(500).json({
           error: "Video generation failed",
           details: err.message,
         });
-      });
+      })
+      .run();
 
   } catch (error) {
     console.error("Video route crash:", error);
-    res.status(500).json({
+    return res.status(500).json({
       error: "Video generation failed",
       details: error.message,
     });
