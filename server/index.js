@@ -84,79 +84,77 @@ app.post("/voiceover", async (req, res) => {
 ========================= */
 app.post("/generate-video", async (req, res) => {
   try {
-    const text = req.body.prompt || "success mindset";
+    const { script, audioUrl, prompt } = req.body;
 
-    const pexels = await axios.get(
-      "https://api.pexels.com/videos/search",
+    // Use prompt for Pexels search instead of huge script
+    const searchQuery = prompt || "success motivation";
+
+    // 1) Fetch stock video from Pexels
+    const pexelsResponse = await axios.get(
+      `https://api.pexels.com/videos/search?query=${encodeURIComponent(searchQuery)}&per_page=1`,
       {
         headers: {
           Authorization: process.env.PEXELS_API_KEY,
         },
-        params: {
-          query: text,
-          per_page: 1,
-        },
       }
     );
 
-    const clipUrl =
-      pexels.data.videos?.[0]?.video_files?.find(
-        (v) => v.quality === "sd"
-      )?.link;
+    const pexelsVideoUrl =
+      pexelsResponse.data.videos?.[0]?.video_files?.[0]?.link;
 
-    if (!clipUrl) {
-      return res.status(500).json({ error: "No stock video found" });
+    if (!pexelsVideoUrl) {
+      return res.status(500).json({ error: "No Pexels video found" });
     }
 
-    const clipPath = path.join(process.cwd(), "stock.mp4");
-    const audioPath = path.join(process.cwd(), "voice.mp3");
-    const outputPath = path.join(process.cwd(), "viral-reel.mp4");
-
-    const clipResponse = await axios.get(clipUrl, {
+    // 2) Download audio
+    const audioPath = "./voice.mp3";
+    const audioResponse = await axios({
+      method: "GET",
+      url: audioUrl,
       responseType: "stream",
     });
 
+    const writer = fs.createWriteStream(audioPath);
+    audioResponse.data.pipe(writer);
+
     await new Promise((resolve, reject) => {
-      const writer = fs.createWriteStream(clipPath);
-      clipResponse.data.pipe(writer);
       writer.on("finish", resolve);
       writer.on("error", reject);
     });
 
-    const voice = await openai.audio.speech.create({
-      model: "gpt-4o-mini-tts",
-      voice: "alloy",
-      input: text,
-    });
-
-    const voiceBuffer = Buffer.from(await voice.arrayBuffer());
-    fs.writeFileSync(audioPath, voiceBuffer);
+    // 3) Generate final reel
+    const outputPath = "./viral-reel.mp4";
+    const videoUrl = pexelsVideoUrl;
 
     await new Promise((resolve, reject) => {
-  ffmpeg()
-    .input(videoUrl)
-    .input(audioPath)
-    .videoCodec("libx264")
-    .audioCodec("aac")
-    .outputOptions([
-      "-preset ultrafast",
-      "-pix_fmt yuv420p",
-      "-movflags +faststart",
-      "-shortest",
-      "-vf",
-      "scale=720:1280:force_original_aspect_ratio=increase,crop=720:1280,drawtext=fontfile=/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf:text='Success starts now':fontcolor=white:fontsize=54:x=(w-text_w)/2:y=h-220"
-    ])
-    .save(outputPath)
-    .on("end", resolve)
-    .on("error", reject);
-});
+      ffmpeg()
+        .input(videoUrl)
+        .input(audioPath)
+        .videoCodec("libx264")
+        .audioCodec("aac")
+        .outputOptions([
+          "-preset ultrafast",
+          "-pix_fmt yuv420p",
+          "-movflags +faststart",
+          "-shortest",
+          "-vf",
+          "scale=720:1280:force_original_aspect_ratio=increase,crop=720:1280,drawtext=fontfile=/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf:text='Success starts now':fontcolor=white:fontsize=54:x=(w-text_w)/2:y=h-220",
+        ])
+        .save(outputPath)
+        .on("end", resolve)
+        .on("error", reject);
+    });
 
+    // 4) Download result
     return res.download(outputPath);
   } catch (error) {
     console.error("PEXELS VIDEO ERROR:", error);
-    return res.status(500).json({ error: "Video generation failed" });
+    return res.status(500).json({
+      error: error.message || "Video generation failed",
+    });
   }
 });
+
 app.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
 });
