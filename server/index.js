@@ -94,6 +94,8 @@ app.post("/generate-video", async (req, res) => {
       throw new Error("voiceover.mp3 missing");
     }
 
+    const captionText = "Success starts with your mindset";
+
     ffmpeg()
       .input("color=c=black:s=720x1280:d=20")
       .inputFormat("lavfi")
@@ -106,17 +108,17 @@ app.post("/generate-video", async (req, res) => {
         "-r 15",
         "-pix_fmt yuv420p",
         "-movflags +faststart",
-        "-shortest"
+        "-shortest",
+        `-vf drawtext=text='${captionText}':fontcolor=white:fontsize=42:x=(w-text_w)/2:y=h-220`
       ])
       .save(outputPath)
       .on("end", () => {
-        console.log("✅ final video ready");
-        res.download(outputPath, "viral-reel.mp4");
+        console.log("✅ captioned reel ready");
+        res.download(outputPath, "captioned-reel.mp4");
       })
       .on("error", (err, stdout, stderr) => {
         console.error("FFMPEG ERROR:", err.message);
-        console.error("STDOUT:", stdout);
-        console.error("STDERR:", stderr);
+        console.error(stderr);
 
         res.status(500).json({
           error: "Video generation failed",
@@ -131,7 +133,6 @@ app.post("/generate-video", async (req, res) => {
     });
   }
 });
-
 const port = process.env.PORT || 8080;
 app.listen(port, () => {
   console.log(`🚀 Server running on port ${port}`);
