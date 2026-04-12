@@ -139,8 +139,8 @@ app.post("/generate-video", async (req, res) => {
         .videoCodec("libx264")
         .audioCodec("aac")
         .outputOptions([
-         "-vf",
-"scale=720:1280:force_original_aspect_ratio=increase,crop=720:1280,drawtext=text='Success starts now':fontcolor=white:fontsize=54:x=(w-text_w)/2:y=h-220", "-movflags +faststart",
+          "-vf",
+"scale=720:1280:force_original_aspect_ratio=increase,crop=720:1280,drawtext=fontfile=/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf:text='Success starts now':fontcolor=white:fontsize=54:x=(w-text_w)/2:y=h-220"
           "-shortest",
         ])
         .save(outputPath)
