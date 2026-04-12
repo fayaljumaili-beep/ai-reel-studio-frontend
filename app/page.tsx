@@ -1,32 +1,20 @@
-# Clean full paste versions
-
-Use these as **full file replacements**.
-
----
-
-## `app/page.tsx`
-
-```tsx
 "use client";
 
 import { useState } from "react";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
-
-export default function Page() {
+export default function Home() {
   const [prompt, setPrompt] = useState("");
   const [script, setScript] = useState("");
-  const [loadingScript, setLoadingScript] = useState(false);
-  const [loadingVoice, setLoadingVoice] = useState(false);
-  const [loadingVideo, setLoadingVideo] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  const API = process.env.NEXT_PUBLIC_API_URL;
 
   const generateScript = async () => {
     if (!prompt.trim()) return alert("Enter a prompt");
+    setLoading(true);
 
     try {
-      setLoadingScript(true);
-
-      const res = await fetch(`${API_URL}/generate`, {
+      const res = await fetch(`${API}/generate`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -34,118 +22,90 @@ export default function Page() {
         body: JSON.stringify({ prompt }),
       });
 
-      const text = await res.text();
-
-      if (!res.ok) {
-        console.error(text);
-        return alert("Script generation failed");
-      }
-
-      setScript(text);
-    } catch (error) {
-      console.error(error);
+      const data = await res.json();
+      setScript(data.script || "No script generated");
+    } catch {
       alert("Script generation failed");
-    } finally {
-      setLoadingScript(false);
     }
+
+    setLoading(false);
   };
 
   const generateVoice = async () => {
-    if (!script.trim()) return alert("Generate script first");
+    if (!script.trim()) return alert("Generate a script first");
 
     try {
-      setLoadingVoice(true);
-
-      const res = await fetch(`${API_URL}/generate-voice`, {
+      const res = await fetch(`${API}/voiceover`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ script }),
+        body: JSON.stringify({ text: script }),
       });
 
-      if (!res.ok) {
-        const err = await res.text();
-        console.error(err);
-        return alert("Voice generation failed");
-      }
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
 
-      alert("Voice generated successfully");
-    } catch (error) {
-      console.error(error);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "voiceover.mp3";
+      a.click();
+    } catch {
       alert("Voice generation failed");
-    } finally {
-      setLoadingVoice(false);
     }
   };
 
   const downloadVideo = async () => {
-  try {
-    setLoadingVideo(true);
+    if (!script.trim()) return alert("Generate a script first");
 
-    const res = await fetch(`${API_URL}/generate-video`, {
-      method: "POST",
-      headers: {
-        Accept: "application/octet-stream",
-      },
-    });
+    try {
+      const res = await fetch(`${API}/generate-video`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ text: script }),
+      });
 
-    if (!res.ok) {
-      const errText = await res.text();
-      console.error(errText);
-      return alert("Video generation failed");
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "viral-reel.mp4";
+      a.click();
+    } catch {
+      alert("Video generation failed");
     }
-
-    const arrayBuffer = await res.arrayBuffer();
-    const blob = new Blob([arrayBuffer], {
-      type: "video/mp4",
-    });
-
-    const url = window.URL.createObjectURL(blob);
-
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "viral-reel.mp4";
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-
-    setTimeout(() => {
-      window.URL.revokeObjectURL(url);
-    }, 1000);
-  } catch (error) {
-    console.error(error);
-    alert("Video generation failed");
-  } finally {
-    setLoadingVideo(false);
-  }
-};
+  };
 
   return (
     <main style={{ padding: 40 }}>
       <h1>Faceless Reel Scripts in 5 Seconds</h1>
+
       <p>LIVE SAAS MODE 🚀</p>
 
       <input
         value={prompt}
         onChange={(e) => setPrompt(e.target.value)}
-        placeholder="how to be successful"
-        style={{ width: 400, padding: 8 }}
+        placeholder="Enter your reel topic"
+        style={{ width: 400, padding: 10 }}
       />
 
-      <div style={{ marginTop: 16, display: "flex", gap: 12 }}>
-        <button onClick={generateScript} disabled={loadingScript}>
-          {loadingScript ? "Generating..." : "✨ Generate Premium Reel Script"}
-        </button>
+      <br />
+      <br />
 
-        <button onClick={generateVoice} disabled={loadingVoice}>
-          {loadingVoice ? "Generating..." : "🎙️ Generate AI Voiceover"}
-        </button>
+      <button onClick={generateScript} disabled={loading}>
+        {loading ? "Generating..." : "✨ Generate Premium Reel Script"}
+      </button>
 
-        <button onClick={downloadVideo} disabled={loadingVideo}>
-          {loadingVideo ? "Generating..." : "🎬 Download Narrated Reel Video"}
-        </button>
-      </div>
+      <button onClick={generateVoice} style={{ marginLeft: 10 }}>
+        🎙 Generate AI Voiceover
+      </button>
+
+      <button onClick={downloadVideo} style={{ marginLeft: 10 }}>
+        🎬 Download Narrated Reel
+      </button>
 
       <h2 style={{ marginTop: 40 }}>Generated Output</h2>
       <pre style={{ whiteSpace: "pre-wrap" }}>{script}</pre>
