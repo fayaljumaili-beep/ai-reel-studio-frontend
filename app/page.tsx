@@ -1,25 +1,32 @@
+# Clean full paste versions
+
+Use these as **full file replacements**.
+
+---
+
+## `app/page.tsx`
+
+```tsx
 "use client";
 
 import { useState } from "react";
 
-const API =
-  process.env.NEXT_PUBLIC_API_URL ||
-  "https://YOUR-RAILWAY-URL.up.railway.app";
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
 
-export default function Home() {
+export default function Page() {
   const [prompt, setPrompt] = useState("");
   const [script, setScript] = useState("");
-  const [audioUrl, setAudioUrl] = useState("");
   const [loadingScript, setLoadingScript] = useState(false);
   const [loadingVoice, setLoadingVoice] = useState(false);
   const [loadingVideo, setLoadingVideo] = useState(false);
 
   const generateScript = async () => {
     if (!prompt.trim()) return alert("Enter a prompt");
-    setLoadingScript(true);
 
     try {
-      const res = await fetch(`${API}/generate`, {
+      setLoadingScript(true);
+
+      const res = await fetch(`${API_URL}/generate`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -28,31 +35,28 @@ export default function Home() {
       });
 
       const text = await res.text();
-      console.log("GENERATE RAW:", text);
 
-      let data: any = {};
-      try {
-        data = JSON.parse(text);
-      } catch {
-        data = { script: text };
+      if (!res.ok) {
+        console.error(text);
+        return alert("Script generation failed");
       }
 
-      setScript(data.script || "");
-      setAudioUrl("");
-    } catch (err) {
-      console.error(err);
+      setScript(text);
+    } catch (error) {
+      console.error(error);
       alert("Script generation failed");
+    } finally {
+      setLoadingScript(false);
     }
-
-    setLoadingScript(false);
   };
 
   const generateVoice = async () => {
-    if (!script) return alert("Generate script first");
-    setLoadingVoice(true);
+    if (!script.trim()) return alert("Generate script first");
 
     try {
-      const res = await fetch(`${API}/generate-voice`, {
+      setLoadingVoice(true);
+
+      const res = await fetch(`${API_URL}/generate-voice`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -60,33 +64,38 @@ export default function Home() {
         body: JSON.stringify({ script }),
       });
 
-      const data = await res.json();
-      if (data.audioUrl) {
-        setAudioUrl(`${API}${data.audioUrl}`);
+      if (!res.ok) {
+        const err = await res.text();
+        console.error(err);
+        return alert("Voice generation failed");
       }
-    } catch (err) {
-      console.error(err);
-      alert("Voice generation failed");
-    }
 
-    setLoadingVoice(false);
+      alert("Voice generated successfully");
+    } catch (error) {
+      console.error(error);
+      alert("Voice generation failed");
+    } finally {
+      setLoadingVoice(false);
+    }
   };
 
-  const generateVideo = async () => {
-    if (!script) return alert("Generate script first");
-    setLoadingVideo(true);
-
+  const downloadVideo = async () => {
     try {
-      const res = await fetch(`${API}/generate-video`, {
+      setLoadingVideo(true);
+
+      const res = await fetch(`${API_URL}/generate-video`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          script,
-          captionText: script.split("\n")[0],
-        }),
+        body: JSON.stringify({}),
       });
+
+      if (!res.ok) {
+        const errText = await res.text();
+        console.error(errText);
+        return alert("Video generation failed");
+      }
 
       const blob = await res.blob();
       const url = window.URL.createObjectURL(blob);
@@ -94,13 +103,17 @@ export default function Home() {
       const a = document.createElement("a");
       a.href = url;
       a.download = "viral-reel.mp4";
+      document.body.appendChild(a);
       a.click();
-    } catch (err) {
-      console.error(err);
-      alert("Video generation failed");
-    }
+      a.remove();
 
-    setLoadingVideo(false);
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error(error);
+      alert("Video generation failed");
+    } finally {
+      setLoadingVideo(false);
+    }
   };
 
   return (
@@ -111,38 +124,26 @@ export default function Home() {
       <input
         value={prompt}
         onChange={(e) => setPrompt(e.target.value)}
-        placeholder="How to become successful"
-        style={{ width: 420, padding: 10 }}
+        placeholder="how to be successful"
+        style={{ width: 400, padding: 8 }}
       />
 
-      <div style={{ marginTop: 20 }}>
+      <div style={{ marginTop: 16, display: "flex", gap: 12 }}>
         <button onClick={generateScript} disabled={loadingScript}>
           {loadingScript ? "Generating..." : "✨ Generate Premium Reel Script"}
         </button>
 
         <button onClick={generateVoice} disabled={loadingVoice}>
-          {loadingVoice ? "Generating..." : "🎙 Generate AI Voiceover"}
+          {loadingVoice ? "Generating..." : "🎙️ Generate AI Voiceover"}
         </button>
 
-        <button onClick={generateVideo} disabled={loadingVideo}>
+        <button onClick={downloadVideo} disabled={loadingVideo}>
           {loadingVideo ? "Generating..." : "🎬 Download Narrated Reel Video"}
         </button>
       </div>
 
-      <div style={{ marginTop: 40 }}>
-        <h2>Generated Output</h2>
-        <pre style={{ whiteSpace: "pre-wrap" }}>{script}</pre>
-
-        {audioUrl && (
-          <div style={{ marginTop: 20 }}>
-            <audio controls src={audioUrl} />
-            <br />
-            <a href={audioUrl} download>
-              Download Voiceover
-            </a>
-          </div>
-        )}
-      </div>
+      <h2 style={{ marginTop: 40 }}>Generated Output</h2>
+      <pre style={{ whiteSpace: "pre-wrap" }}>{script}</pre>
     </main>
   );
 }
