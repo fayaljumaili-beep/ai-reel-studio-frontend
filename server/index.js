@@ -71,35 +71,46 @@ app.post("/generate-voice", async (req, res) => {
 
 app.post("/generate-video", async (req, res) => {
   try {
-    const audioPath = "/app/voiceover.mp3";
-    const outputPath = "/app/viral-reel.mp4";
+    const script = latestScript || "Default viral reel script";
+    const mp3Path = path.join(process.cwd(), "public", "voiceover.mp3");
+    const outputPath = path.join(process.cwd(), "public", "viral-reel.mp4");
 
-    ffmpeg()
-      .input("color=c=black:s=360x640:d=8")
-      .inputFormat("lavfi")
-      .input(audioPath)
-      .videoCodec("libx264")
-      .audioCodec("aac")
-      .fps(24)
-      .outputOptions([
-        "-preset ultrafast",
-        "-pix_fmt yuv420p",
-        "-movflags +faststart",
-        "-shortest",
-        "-threads 1",
-      ])
-      .save(outputPath)
-      .on("end", () => {
-        console.log("✅ FINAL QUICKTIME SAFE MP4 READY");
-        res.download(outputPath, "viral-reel.mp4");
-      })
-      .on("error", (err) => {
-        console.error("FINAL QT SAFE ERROR:", err);
-        res.status(500).send("Video generation failed");
-      });
+    const safeText = script
+      .replace(/'/g, "")
+      .replace(/:/g, "")
+      .slice(0, 60);
+
+    await new Promise((resolve, reject) => {
+      ffmpeg()
+        .input("color=c=black:s=720x1280:d=12")
+        .inputOptions(["-f lavfi"])
+        .input(mp3Path)
+        .videoCodec("libx264")
+        .audioCodec("aac")
+        .audioBitrate("128k")
+        .outputOptions([
+          "-pix_fmt yuv420p",
+          "-movflags +faststart",
+          "-shortest",
+          "-preset ultrafast",
+          "-r 24",
+          `-vf drawtext=text='${safeText}':fontcolor=white:fontsize=42:x=(w-text_w)/2:y=(h-text_h)/2`
+        ])
+        .save(outputPath)
+        .on("end", resolve)
+        .on("error", reject);
+    });
+
+    res.setHeader("Content-Type", "video/mp4");
+    res.setHeader(
+      "Content-Disposition",
+      'attachment; filename="viral-reel.mp4"'
+    );
+
+    res.sendFile(outputPath);
   } catch (error) {
-    console.error("Video route crash:", error);
-    res.status(500).send("Video generation failed");
+    console.error("FINAL VALID INPUT ORDER ERROR:", error);
+    res.status(500).json({ error: "Video generation failed" });
   }
 });
 
