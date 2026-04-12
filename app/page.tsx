@@ -2,7 +2,7 @@
   };
 
   const generateVoice = async () => {
-    const res = await fetch("/api/voiceover", {
+    const res = await fetch("/https://ai-reel-studio-frontend-production.up.railway.app/", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ text: script || prompt }),
