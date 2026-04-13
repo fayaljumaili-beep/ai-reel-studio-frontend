@@ -12,7 +12,7 @@ export default function Page() {
     try {
       setLoading(true);
 
-      const res = await fetch("https://ai-reel-studio-frontend-production.up.railway.app/generate-script"
+      const res = await fetch("https://ai-reel-studio-frontend-production.up.railway.app/generate-script",
         {
           method: "POST",
           headers: {
