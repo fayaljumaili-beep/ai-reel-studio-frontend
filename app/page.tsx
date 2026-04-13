@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-const API = "https://ai-reel-studio-frontend-production.up.railway.app/";
+const API = "https://ai-reel-studio-frontend-production.up.railway.app";
 
 export default function Page() {
   const [prompt, setPrompt] = useState("");
