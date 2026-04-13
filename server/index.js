@@ -3,8 +3,8 @@ import cors from "cors";
 import dotenv from "dotenv";
 import ffmpeg from "fluent-ffmpeg";
 import fs from "fs";
-import OpenAI from "openai";
 import path from "path";
+import OpenAI from "openai";
 
 dotenv.config();
 
@@ -20,7 +20,7 @@ app.get("/", (_, res) => {
   res.send("AI Reel backend running 🚀");
 });
 
-// ✅ STEP 1: generate script
+// 1) Generate script
 app.post("/generate-script", async (req, res) => {
   try {
     const { prompt } = req.body;
@@ -31,7 +31,7 @@ app.post("/generate-script", async (req, res) => {
         {
           role: "system",
           content:
-            "Write a viral faceless reel script with hook, 5 scenes, CTA, captions, and voiceover lines.",
+            "Write viral faceless reel scripts with hook, 5 scenes, CTA, and captions.",
         },
         {
           role: "user",
@@ -44,42 +44,49 @@ app.post("/generate-script", async (req, res) => {
     res.json({ script });
   } catch (error) {
     console.error(error);
-    res.status(400).send("Script generation failed");
+    res.status(500).send("Script generation failed");
   }
 });
 
-// ✅ STEP 2: generate voiceover
+// 2) Generate voice (temporary mock that returns your provided URL)
 app.post("/voiceover", async (req, res) => {
   try {
-    const fakeVoiceUrl =
-      "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3";
+    const { script } = req.body;
 
-    res.json({ voiceUrl: fakeVoiceUrl });
+    // TODO: replace with ElevenLabs/TTS provider
+    // For now frontend can pass any working mp3 URL
+    const voiceUrl = process.env.DEMO_VOICE_URL;
+
+    if (!voiceUrl) {
+      return res.status(400).send("Missing DEMO_VOICE_URL in Railway vars");
+    }
+
+    res.json({ voiceUrl, script });
   } catch (error) {
     console.error(error);
-    res.status(400).send("Voice generation failed");
+    res.status(500).send("Voice generation failed");
   }
 });
 
-// ✅ STEP 3: generate video
+// 3) Generate final reel video
 app.post("/generate-video", async (req, res) => {
   try {
     const { audioUrl, voiceUrl, audio, url } = req.body;
-
     const finalAudioUrl = audioUrl || voiceUrl || audio || url;
-    const path = require("path");
-const stockVideoPath = path.join(process.cwd(), "assets", "stock.mp4");
-    const outputPath = `/tmp/viral-reel-${Date.now()}.mp4`;
 
     if (!finalAudioUrl) {
       return res.status(400).send("Missing voice URL");
     }
 
+    const stockVideoPath = path.resolve("server/sample.mp4");
+    const outputPath = `/tmp/viral-reel-${Date.now()}.mp4`;
+  
     if (!fs.existsSync(stockVideoPath)) {
       return res.status(400).send("Missing stock video file");
     }
 
-    ffmpeg(stockVideoPath)
+    ffmpeg()
+      .input(stockVideoPath)
       .input(finalAudioUrl)
       .videoCodec("libx264")
       .audioCodec("aac")
@@ -90,16 +97,17 @@ const stockVideoPath = path.join(process.cwd(), "assets", "stock.mp4");
         "-shortest",
       ])
       .size("720x1280")
-      .save(outputPath)
       .on("end", () => {
+        console.log("VIDEO CREATED SUCCESSFULLY");
         res.download(outputPath);
       })
       .on("error", (err) => {
-        console.error(err);
+        console.error("VIDEO ERROR:", err);
         res.status(400).send(`FFmpeg failed: ${err.message}`);
-      });
+      })
+      .save(outputPath);
   } catch (error) {
-    console.error(error);
+    console.error("ROUTE ERROR:", error);
     res.status(400).send(`Route failed: ${error.message}`);
   }
 });
