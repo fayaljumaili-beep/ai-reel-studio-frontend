@@ -3,6 +3,8 @@
 import { useState } from "react";
 
 const API = "https://ai-reel-studio-frontend-production.up.railway.app";
+const DEMO_MP3 =
+  "https://ai-reel-studio-frontend-agpd-e2a8bhir4.vercel.app/demo.mp3";
 
 export default function Page() {
   const [prompt, setPrompt] = useState("");
@@ -13,6 +15,7 @@ export default function Page() {
   const generateScript = async () => {
     try {
       setLoading(true);
+
       const res = await fetch(`${API}/generate-script`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -32,29 +35,33 @@ export default function Page() {
   };
 
   const generateVoice = async () => {
-  try {
-    setLoading(true);
-    setVoiceUrl(
-      "https://ai-reel-studio-frontend-agpd-e2a8bhir4.vercel.app/demo.mp3"
-    );
-  } catch (error) {
-    console.error(error);
-    alert("Voice generation failed");
-  } finally {
-    setLoading(false);
-  }
-};
+    try {
+      setLoading(true);
+
+      // use known-good public MP3
+      setVoiceUrl(DEMO_MP3);
+    } catch (error) {
+      console.error(error);
+      alert("Voice generation failed");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const downloadReel = async () => {
     try {
       setLoading(true);
+
       const res = await fetch(`${API}/generate-video`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ voiceUrl }),
       });
 
-      if (!res.ok) throw new Error("Video generation failed");
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(text || "Video generation failed");
+      }
 
       const blob = await res.blob();
       const url = window.URL.createObjectURL(blob);
@@ -83,7 +90,7 @@ export default function Page() {
         className="border px-4 py-2 w-full"
       />
 
-      <div className="flex gap-3">
+      <div className="flex gap-3 flex-wrap">
         <button
           onClick={generateScript}
           disabled={loading}
@@ -109,17 +116,17 @@ export default function Page() {
         </button>
       </div>
 
-    <section>
-  <h2 className="text-2xl font-bold">Generated Output</h2>
-  <pre className="whitespace-pre-wrap">{script}</pre>
-</section>
+      <section>
+        <h2 className="text-2xl font-bold">Generated Output</h2>
+        <pre className="whitespace-pre-wrap">{script}</pre>
+      </section>
 
-{voiceUrl && (
-  <section className="space-y-2">
-    <h2 className="text-xl font-bold">Generated Voice</h2>
-    <audio controls src={voiceUrl} className="w-full" />
-  </section>
-)}
-</main>
+      {voiceUrl && (
+        <section className="space-y-2">
+          <h2 className="text-xl font-bold">Generated Voice</h2>
+          <audio controls src={voiceUrl} className="w-full" />
+        </section>
+      )}
+    </main>
   );
 }

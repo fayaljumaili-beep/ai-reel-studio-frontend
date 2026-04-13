@@ -20,7 +20,6 @@ app.get("/", (_, res) => {
   res.send("AI Reel backend running 🚀");
 });
 
-// 1) Generate script
 app.post("/generate-script", async (req, res) => {
   try {
     const { prompt } = req.body;
@@ -48,40 +47,30 @@ app.post("/generate-script", async (req, res) => {
   }
 });
 
-// 2) Generate voice (temporary mock that returns your provided URL)
-app.post("/voiceover", async (req, res) => {
+app.post("/voiceover", async (_, res) => {
   try {
-    const { script } = req.body;
+    const voiceUrl =
+      "https://ai-reel-studio-frontend-agpd-e2a8bhir4.vercel.app/demo.mp3";
 
-    // TODO: replace with ElevenLabs/TTS provider
-    // For now frontend can pass any working mp3 URL
-    const voiceUrl = process.env.DEMO_VOICE_URL;
-
-    if (!voiceUrl) {
-      return res.status(400).send("Missing https://your-public-mp3-url.mp3 in Railway vars");
-    }
-
-    res.json({ voiceUrl, script });
+    res.json({ voiceUrl });
   } catch (error) {
     console.error(error);
     res.status(500).send("Voice generation failed");
   }
 });
 
-// 3) Generate final reel video
 app.post("/generate-video", async (req, res) => {
   try {
     const body = req.body || {};
+    console.log("VIDEO BODY:", body);
 
-console.log("VIDEO BODY:", body);
-
-const finalAudioUrl =
-  body.audioUrl ||
-  body.voiceUrl ||
-  body.audio ||
-  body.url ||
-  body.voice ||
-  body.mp3;
+    const finalAudioUrl =
+      body.audioUrl ||
+      body.voiceUrl ||
+      body.audio ||
+      body.url ||
+      body.voice ||
+      body.mp3;
 
     if (!finalAudioUrl) {
       return res.status(400).send("Missing voice URL");
@@ -89,14 +78,19 @@ const finalAudioUrl =
 
     const stockVideoPath = path.resolve("sample.mp4");
     const outputPath = `/tmp/viral-reel-${Date.now()}.mp4`;
-  
+    const audioPath = "/tmp/voice.mp3";
+
     if (!fs.existsSync(stockVideoPath)) {
       return res.status(400).send("Missing stock video file");
     }
 
+    const audioRes = await fetch(finalAudioUrl);
+    const audioBuffer = Buffer.from(await audioRes.arrayBuffer());
+    fs.writeFileSync(audioPath, audioBuffer);
+
     ffmpeg()
       .input(stockVideoPath)
-      .input(finalAudioUrl)
+      .input(audioPath)
       .videoCodec("libx264")
       .audioCodec("aac")
       .outputOptions([
@@ -111,12 +105,12 @@ const finalAudioUrl =
         res.download(outputPath);
       })
       .on("error", (err) => {
-        console.error("VIDEO ERROR:", err);
+        console.error("VIDEO ERROR:", err.message);
         res.status(400).send(`FFmpeg failed: ${err.message}`);
       })
       .save(outputPath);
   } catch (error) {
-    console.error("ROUTE ERROR:", error);
+    console.error("ROUTE ERROR:", error.message);
     res.status(400).send(`Route failed: ${error.message}`);
   }
 });
