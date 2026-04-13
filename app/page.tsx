@@ -35,18 +35,36 @@ export default function Page() {
   };
 
   const generateVoice = async () => {
-    try {
-      setLoading(true);
+  try {
+    setLoading(true);
 
-      // use known-good public MP3
-      setVoiceUrl(DEMO_MP3);
-    } catch (error) {
-      console.error(error);
-      alert("Voice generation failed");
-    } finally {
-      setLoading(false);
+    const res = await fetch(`${API}/voiceover`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ script }),
+    });
+
+    console.log("VOICE STATUS:", res.status);
+
+    if (!res.ok) {
+      const text = await res.text();
+      console.error("VOICE ERROR:", text);
+      throw new Error(text);
     }
-  };
+
+    const data = await res.json();
+    console.log("VOICE DATA:", data);
+
+    setVoiceUrl(data.voiceUrl || data.url || "");
+  } catch (error) {
+    console.error("VOICE FAILED:", error);
+    alert("Voice generation failed");
+  } finally {
+    setLoading(false);
+  }
+};
 
   const downloadReel = async () => {
     try {
