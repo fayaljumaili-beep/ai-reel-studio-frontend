@@ -4,6 +4,7 @@ import dotenv from "dotenv";
 import ffmpeg from "fluent-ffmpeg";
 import fs from "fs";
 import OpenAI from "openai";
+import path from "path";
 
 dotenv.config();
 
@@ -63,23 +64,22 @@ app.post("/voiceover", async (req, res) => {
 // ✅ STEP 3: generate video
 app.post("/generate-video", async (req, res) => {
   try {
-    const { prompt, audioUrl, voiceUrl, audio, url } = req.body;
+    const { audioUrl, voiceUrl, audio, url } = req.body;
 
     const finalAudioUrl = audioUrl || voiceUrl || audio || url;
+    const path = require("path");
+const stockVideoPath = path.join(process.cwd(), "assets", "stock.mp4");
+    const outputPath = `/tmp/viral-reel-${Date.now()}.mp4`;
 
     if (!finalAudioUrl) {
       return res.status(400).send("Missing voice URL");
     }
 
-    const stockVideoPath = "/tmp/stock-video.mp4";
-    const outputPath = `/tmp/viral-reel-${Date.now()}.mp4`;
-
     if (!fs.existsSync(stockVideoPath)) {
       return res.status(400).send("Missing stock video file");
     }
 
-    ffmpeg()
-      .input(stockVideoPath)
+    ffmpeg(stockVideoPath)
       .input(finalAudioUrl)
       .videoCodec("libx264")
       .audioCodec("aac")
@@ -90,18 +90,17 @@ app.post("/generate-video", async (req, res) => {
         "-shortest",
       ])
       .size("720x1280")
+      .save(outputPath)
       .on("end", () => {
-        console.log("VIDEO CREATED SUCCESSFULLY");
-        return res.download(outputPath);
+        res.download(outputPath);
       })
       .on("error", (err) => {
-        console.error("VIDEO ERROR:", err);
-        return res.status(400).send(`FFmpeg failed: ${err.message}`);
-      })
-      .save(outputPath);
+        console.error(err);
+        res.status(400).send(`FFmpeg failed: ${err.message}`);
+      });
   } catch (error) {
-    console.error("ROUTE ERROR:", error);
-    return res.status(400).send(`Route failed: ${error.message}`);
+    console.error(error);
+    res.status(400).send(`Route failed: ${error.message}`);
   }
 });
 
