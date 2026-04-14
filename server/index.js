@@ -84,15 +84,18 @@ app.post("/generate-video", async (req, res) => {
       .input(finalAudioUrl)
       .outputOptions([
   "-vf scale=720:1280",
-  "-r 24",
+  "-r 30",
   "-c:v libx264",
+  "-profile:v main",
+  "-level 3.1",
   "-preset ultrafast",
-  "-crf 30",
+  "-crf 28",
   "-pix_fmt yuv420p",
   "-c:a aac",
+  "-ar 44100",
   "-b:a 128k",
-  "-shortest",
   "-movflags +faststart",
+  "-shortest",
 ])
       .save(outputPath)
       .on("end", () => {
