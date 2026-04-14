@@ -3,18 +3,12 @@ import cors from "cors";
 import dotenv from "dotenv";
 import ffmpeg from "fluent-ffmpeg";
 import fs from "fs";
-import path from "path";
-import { fileURLToPath } from "url";
 
 dotenv.config();
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
 const app = express();
 app.use(cors());
 app.use(express.json({ limit: "10mb" }));
-app.use(express.static("."));
 
 app.get("/", (_, res) => {
   res.send("🚀 AI Reel backend running");
@@ -47,22 +41,19 @@ Ask users to follow for more.
   }
 });
 
-// 2) Voiceover route (serves stable MP3)
 app.post("/voiceover", async (req, res) => {
   try {
     const host = req.get("host");
-    const protocol = host.includes("localhost") ? "http" : "https";
-
+    const protocol = req.headers["x-forwarded-proto"] || "https";
     const voiceUrl = `${protocol}://${host}/voice.mp3`;
 
     res.json({ voiceUrl });
   } catch (error) {
-    console.error("VOICE ERROR:", error);
+    console.error(error);
     res.status(500).send("Voice generation failed");
   }
 });
 
-// 3) Generate final narrated video
 app.post("/generate-video", async (req, res) => {
   try {
     const host = req.get("host");
