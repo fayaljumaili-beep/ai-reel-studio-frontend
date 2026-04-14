@@ -3,8 +3,6 @@
 import { useState } from "react";
 
 const API = "https://ai-reel-studio-frontend-production.up.railway.app";
-const DEMO_MP3 =
-  "https://ai-reel-studio-frontend-agpd-e2a8bhir4.vercel.app/demo.mp3";
 
 export default function Page() {
   const [prompt, setPrompt] = useState("");
