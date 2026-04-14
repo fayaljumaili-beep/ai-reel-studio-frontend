@@ -79,9 +79,16 @@ app.post("/generate-video", async (req, res) => {
     const videoPath = path.join(process.cwd(), "sample.mp4");
     const outputPath = path.join("/tmp", "viral-reel.mp4");
 
+    const audioPath = path.join("/tmp", "voice.mp3");
+
+const audioRes = await fetch(finalAudioUrl);
+const audioBuffer = Buffer.from(await audioRes.arrayBuffer());
+
+fs.writeFileSync(audioPath, audioBuffer);
+
     ffmpeg()
       .input(videoPath)
-      .input(finalAudioUrl)
+      .input(audioPath)
       .outputOptions([
   "-vf scale=720:1280",
   "-r 30",
