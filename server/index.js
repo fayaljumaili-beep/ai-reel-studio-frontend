@@ -12,8 +12,10 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
+
 app.use(cors());
 app.use(express.json({ limit: "10mb" }));
+app.use(express.static(__dirname));
 
 app.get("/", (_, res) => {
   res.send("🚀 AI Reel backend running");
@@ -21,7 +23,7 @@ app.get("/", (_, res) => {
 
 app.post("/generate-script", async (req, res) => {
   try {
-    const { topic } = req.body;
+    const topic = req.body?.topic || "How to become successful";
 
     const script = `
 🎬 Viral Faceless Reel Script: "${topic}"
@@ -54,7 +56,7 @@ app.post("/voiceover", async (req, res) => {
 
     res.json({ voiceUrl });
   } catch (error) {
-    console.error(error);
+    console.error("VOICE ERROR:", error);
     res.status(500).send("Voice generation failed");
   }
 });
@@ -98,7 +100,7 @@ app.post("/generate-video", async (req, res) => {
       })
       .save(outputPath);
   } catch (error) {
-    console.error(error);
+    console.error("ROUTE ERROR:", error);
     res.status(500).send("Video generation failed");
   }
 });
@@ -106,5 +108,5 @@ app.post("/generate-video", async (req, res) => {
 const PORT = process.env.PORT || 8080;
 
 app.listen(PORT, () => {
-  console.log("Server running on port " + PORT);
+  console.log("🚀 Server running on port " + PORT);
 });
