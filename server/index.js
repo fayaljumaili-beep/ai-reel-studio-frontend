@@ -56,13 +56,9 @@ app.post("/voiceover", async (req, res) => {
 
 app.post("/generate-video", async (req, res) => {
   try {
-    const host = req.get("host");
-    const protocol = req.headers["x-forwarded-proto"] || "https";
-    const voiceUrl = `${protocol}://${host}/voice.mp3`;
-
     ffmpeg()
       .input("sample.mp4")
-      .input(voiceUrl)
+      .input("voice.mp3")
       .outputOptions([
         "-map 0:v:0",
         "-map 1:a:0",
@@ -93,7 +89,7 @@ app.post("/generate-video", async (req, res) => {
       })
       .save("viral-reel.mp4");
   } catch (error) {
-    console.error("ROUTE ERROR:", error);
+    console.error(error);
     res.status(500).send("Video generation failed");
   }
 });
