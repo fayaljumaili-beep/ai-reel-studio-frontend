@@ -63,7 +63,6 @@ app.post("/voiceover", async (_, res) => {
 app.post("/generate-video", async (req, res) => {
   try {
     const body = req.body || {};
-    console.log("VIDEO BODY:", body);
 
     const finalAudioUrl =
       body.audioUrl ||
@@ -81,10 +80,6 @@ app.post("/generate-video", async (req, res) => {
     const outputPath = `/tmp/viral-reel-${Date.now()}.mp4`;
     const audioPath = "/tmp/voice.mp3";
 
-    if (!fs.existsSync(stockVideoPath)) {
-      return res.status(400).send("Missing stock video file");
-    }
-
     const audioRes = await fetch(finalAudioUrl);
     const audioBuffer = Buffer.from(await audioRes.arrayBuffer());
     fs.writeFileSync(audioPath, audioBuffer);
@@ -94,25 +89,28 @@ app.post("/generate-video", async (req, res) => {
       .input(audioPath)
       .videoCodec("libx264")
       .audioCodec("aac")
+      .format("mp4")
       .outputOptions([
-        "-preset veryfast",
-        "-movflags +faststart",
+        "-preset medium",
         "-pix_fmt yuv420p",
+        "-movflags +faststart",
         "-shortest",
+        "-profile:v main",
+        "-level 3.1",
+        "-r 30",
       ])
       .size("720x1280")
       .on("end", () => {
-        console.log("VIDEO CREATED SUCCESSFULLY");
-        res.download(outputPath);
+        res.download(outputPath, "viral-reel.mp4");
       })
       .on("error", (err) => {
         console.error("VIDEO ERROR:", err.message);
-        res.status(400).send(`FFmpeg failed: ${err.message}`);
+        res.status(400).send(err.message);
       })
       .save(outputPath);
   } catch (error) {
-    console.error("ROUTE ERROR:", error.message);
-    res.status(400).send(`Route failed: ${error.message}`);
+    console.error(error);
+    res.status(400).send(error.message);
   }
 });
 
