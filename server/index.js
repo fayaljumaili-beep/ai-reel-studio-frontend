@@ -62,25 +62,11 @@ app.post("/voiceover", async (_, res) => {
 // 3) Generate final narrated video
 app.post("/generate-video", async (req, res) => {
   try {
-    const caption = (req.body?.caption || "Unlock Your Success!")
-      .replace(/:/g, "\\:")
-      .replace(/'/g, "\\'");
-
-    const samplePath = path.join(__dirname, "..", "sample.mp4");
-    const voicePath = path.join(__dirname, "..", "voice.mp3");
-    const outputPath = path.join(__dirname, "..", "viral-reel.mp4");
-
-    if (!fs.existsSync(samplePath)) {
-      return res.status(400).send("sample.mp4 missing");
-    }
-
-    if (!fs.existsSync(voicePath)) {
-      return res.status(400).send("voice.mp3 missing");
-    }
+    const caption = req.body?.caption || "Unlock Your Success!";
 
     ffmpeg()
-      .input(samplePath)
-      .input(voicePath)
+      .input("sample.mp4")
+      .input("voice.mp3")
       .outputOptions([
         "-map 0:v:0",
         "-map 1:a:0",
@@ -99,31 +85,26 @@ app.post("/generate-video", async (req, res) => {
         "-shortest"
       ])
       .on("end", () => {
-        try {
-           try {
-          const videoBuffer = fs.readFileSync(outputPath);
-          res.setHeader("Content-Type", "video/mp4");
-          res.setHeader(
-            "Content-Disposition",
-            'attachment; filename="viral-reel.mp4"'
-          );
-          res.end(videoBuffer);
-        } catch (error) {
-          console.error("READ VIDEO ERROR:", error);
-          res.status(500).send(error.message);
-        }
+        const videoBuffer = fs.readFileSync("viral-reel.mp4");
+
+        res.setHeader("Content-Type", "video/mp4");
+        res.setHeader(
+          "Content-Disposition",
+          'attachment; filename="viral-reel.mp4"'
+        );
+
+        res.end(videoBuffer);
       })
       .on("error", (err) => {
         console.error("VIDEO ERROR:", err.message);
         res.status(400).send(err.message);
       })
-      .save(outputPath);
+      .save("viral-reel.mp4");
   } catch (error) {
-    console.error(error);
+    console.error("ROUTE ERROR:", error);
     res.status(500).send(error.message);
   }
 });
-
 const PORT = process.env.PORT || 8080;
 app.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
