@@ -16,21 +16,17 @@ export default function Page() {
 
       const res = await fetch(`${API}/generate-script`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ prompt }),
       });
 
-      if (!res.ok) {
-        throw new Error("Script generation failed");
-      }
+      if (!res.ok) throw new Error("Script generation failed");
 
       const data = await res.json();
       setScript(data.script || "");
-      setVoiceUrl(""); // reset old voice when new script generated
+      setVoiceUrl("");
     } catch (error) {
-      console.error("SCRIPT ERROR:", error);
+      console.error(error);
       alert("Script generation failed");
     } finally {
       setLoading(false);
@@ -43,9 +39,7 @@ export default function Page() {
 
       const res = await fetch(`${API}/voiceover`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ script }),
       });
 
@@ -55,12 +49,11 @@ export default function Page() {
       }
 
       const data = await res.json();
-      console.log("VOICE RESPONSE:", data);
+      console.log("VOICE DATA:", data);
 
-      // ✅ critical fix
       setVoiceUrl(data.voiceUrl || "");
     } catch (error) {
-      console.error("VOICE ERROR:", error);
+      console.error(error);
       alert("Voice generation failed");
     } finally {
       setLoading(false);
@@ -73,12 +66,8 @@ export default function Page() {
 
       const res = await fetch(`${API}/generate-video`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          voiceUrl,
-        }),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ voiceUrl }),
       });
 
       if (!res.ok) {
@@ -96,7 +85,7 @@ export default function Page() {
 
       window.URL.revokeObjectURL(url);
     } catch (error) {
-      console.error("VIDEO ERROR:", error);
+      console.error(error);
       alert("Video generation failed");
     } finally {
       setLoading(false);
@@ -119,37 +108,36 @@ export default function Page() {
       />
 
       <div className="flex gap-3 flex-wrap">
-  <button
-    onClick={generateScript}
-    disabled={loading}
-    className="border px-4 py-2 rounded"
-  >
-    Generate Premium Reel Script
-  </button>
+        <button
+          onClick={generateScript}
+          disabled={loading}
+          className="border px-4 py-2 rounded"
+        >
+          Generate Premium Reel Script
+        </button>
 
-  <button
-    onClick={generateVoice}
-    disabled={!script || loading}
-    className="border px-4 py-2 rounded"
-  >
-    Generate AI Voiceover
-  </button>
+        <button
+          onClick={generateVoice}
+          disabled={!script || loading}
+          className="border px-4 py-2 rounded"
+        >
+          Generate AI Voiceover
+        </button>
 
-  <button
-    onClick={downloadReel}
-    disabled={!voiceUrl || loading}
-    className="border px-4 py-2 rounded"
-  >
-    Download Narrated Reel
-  </button>
-</div>
+        <button
+          onClick={downloadReel}
+          disabled={!voiceUrl || loading}
+          className="border px-4 py-2 rounded"
+        >
+          Download Narrated Reel
+        </button>
+      </div>
 
       <section>
         <h2 className="text-2xl font-bold">Generated Output</h2>
         <pre className="whitespace-pre-wrap">{script}</pre>
       </section>
 
-      {/* ✅ audio player appears once voiceUrl is set */}
       {voiceUrl && (
         <section className="space-y-2">
           <h2 className="text-xl font-bold">Generated Voice</h2>
