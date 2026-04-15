@@ -5,40 +5,110 @@ import path from "path";
 import ffmpeg from "fluent-ffmpeg";
 
 const app = express();
-
-app.use(cors({
-  origin: "*",
-  methods: ["GET", "POST", "OPTIONS"],
-  allowedHeaders: ["Content-Type"]
-}));
+const PORT = process.env.PORT || 8080;
 
 app.use(cors());
-
 app.use(express.json());
+app.use(express.static(process.cwd()));
+
+app.post("/generate-script", async (req, res) => {
+  try {
+    const { topic } = req.body;
+
+    if (!topic) {
+      return res.status(400).json({ error: "Topic is required" });
+    }
+
+    const script = `🎬 Viral Faceless Reel Script: "${topic}"
+
+1. Hook (0–3s)
+Show an emotional opener related to the topic.
+
+2. Main Point (3–8s)
+Reveal the first powerful lesson.
+
+3. Value (8–15s)
+Show transformation, proof, or insight.
+
+4. CTA (15–20s)
+Ask users to follow for more.`;
+
+    res.json({ script });
+  } catch (error) {
+    console.error("SCRIPT ERROR:", error);
+    res.status(500).json({ error: "Script generation failed" });
+  }
+});
+
+app.post("/voiceover", async (req, res) => {
+  try {
+    const { script } = req.body;
+
+    if (!script) {
+      return res.status(400).json({ error: "Script is required" });
+    }
+
+    const voicePath = path.join(process.cwd(), "voice.mp3");
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 10000);
+
+    const response = await fetch("https://api.openai.com/v1/audio/speech", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+      },
+      body: JSON.stringify({
+        model: "gpt-4o-mini-tts",
+        voice: "alloy",
+        input: script,
+      }),
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeout);
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`TTS failed ${response.status}: ${errorText}`);
+    }
+
+    const audioBuffer = Buffer.from(await response.arrayBuffer());
+
+    if (!audioBuffer.length) {
+      throw new Error("Generated MP3 is empty");
+    }
+
+    fs.writeFileSync(voicePath, audioBuffer);
+
+    res.json({
+      success: true,
+      audioUrl: "/voice.mp3",
+    });
+  } catch (error) {
+    console.error("VOICEOVER ERROR:", error);
+    res.status(500).json({
+      error: error.message || "Voice generation failed",
+    });
+  }
+});
 
 app.post("/generate-video", async (req, res) => {
   try {
-    const videoPath = path.resolve("sample.mp4");
-    const voicePath = path.resolve("voice.mp3");
-    const outputPath = path.resolve("final-reel.mp4");
+    const samplePath = path.join(process.cwd(), "sample.mp4");
+    const voicePath = path.join(process.cwd(), "voice.mp3");
+    const outputPath = path.join(process.cwd(), "viral-reel.mp4");
 
-    if (!fs.existsSync(videoPath)) {
-      throw new Error(`Missing sample video: ${videoPath}`);
+    if (!fs.existsSync(samplePath)) {
+      throw new Error("sample.mp4 missing");
     }
 
     if (!fs.existsSync(voicePath)) {
-      throw new Error(`Missing voice file: ${voicePath}`);
+      throw new Error("voice.mp3 missing");
     }
 
-    const voiceStats = await fsp.stat(voicePath);
-    console.log("MP3 SIZE:", voiceStats.size);
-
-
-    if (voiceStats.size === 0) {
-      throw new Error("voice.mp3 is empty");
-    }
-
-    ffmpeg(videoPath)
+    ffmpeg(samplePath)
       .input(voicePath)
       .outputOptions([
         "-map 0:v:0",
@@ -48,15 +118,14 @@ app.post("/generate-video", async (req, res) => {
         "-shortest",
       ])
       .save(outputPath)
-      .on("end", async () => {
-        const videoBuffer = await fsp.readFile(outputPath);
-
+      .on("end", () => {
         res.setHeader("Content-Type", "video/mp4");
         res.setHeader(
           "Content-Disposition",
           'attachment; filename="viral-reel.mp4"'
         );
 
+        const videoBuffer = fs.readFileSync(outputPath);
         res.end(videoBuffer);
       })
       .on("error", (err) => {
@@ -68,41 +137,7 @@ app.post("/generate-video", async (req, res) => {
     res.status(500).send("Video generation failed");
   }
 });
-app.post("/voiceover", async (req, res) => {
-  try {
-    const { script } = req.body;
 
-    if (!script) {
-      return res.status(400).json({ error: "Missing script" });
-    }
-
-    const response = await fetch(TTS_URL, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${process.env.TTS_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ text: script }),
-    });
-
-    if (!response.ok) {
-      throw new Error(`TTS failed: ${response.status}`);
-    }
-
-    const audioBuffer = Buffer.from(await response.arrayBuffer());
-
-    await fsp.writeFile("voice.mp3", audioBuffer);
-
-    const stats = await fsp.stat("voice.mp3");
-    console.log("VOICE SIZE:", stats.size);
-
-    if (stats.size === 0) {
-      throw new Error("voice.mp3 was saved empty");
-    }
-
-    res.json({ success: true, size: stats.size });
-  } catch (error) {
-    console.error("VOICEOVER ERROR:", error);
-    res.status(500).json({ error: "Voice generation failed" });
-  }
+app.listen(PORT, () => {
+  console.log(`🚀 Server running on port ${PORT}`);
 });
