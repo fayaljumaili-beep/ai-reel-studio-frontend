@@ -13,7 +13,7 @@ app.use(express.static(process.cwd()));
 
 app.post("/generate-script", async (req, res) => {
   try {
-    const { topic } = req.body;
+    const topic = req.body?.topic || "viral success";
 
     const script = `🎬 Viral Faceless Reel Script: "${topic}"
 
@@ -31,28 +31,25 @@ Ask users to follow for more.`;
 
     res.json({ script });
   } catch (error) {
-    console.error("SCRIPT ERROR:", error);
-    res.status(500).json({ error: "script generation failed" });
+    res.status(500).send("Script generation failed");
   }
 });
 
 app.post("/voiceover", async (req, res) => {
   try {
-    const script = req.body?.script;
-
+    const script = req.body?.script || "";
     if (!script) {
-      return res.status(400).json({
-        error: "script missing in request body",
-      });
+      return res.status(400).send("Missing script");
     }
 
-    const voicePath = path.join(process.cwd(), "voice.mp3");
+    const sourceAudio = path.join(process.cwd(), "voice.mp3");
+    const targetAudio = path.join(process.cwd(), "voice.mp3");
 
-    // TEMP demo voice file fallback
-    fs.copyFileSync(
-      path.join(process.cwd(), "voice.mp3"),
-      voicePath
-    );
+    if (!fs.existsSync(sourceAudio)) {
+      return res.status(500).send("voice.mp3 missing");
+    }
+
+    fs.copyFileSync(sourceAudio, targetAudio);
 
     res.json({
       success: true,
@@ -60,9 +57,7 @@ app.post("/voiceover", async (req, res) => {
     });
   } catch (error) {
     console.error("VOICEOVER ERROR:", error);
-    res.status(500).json({
-      error: error.message,
-    });
+    res.status(500).send("Voiceover failed");
   }
 });
 
@@ -73,30 +68,30 @@ app.post("/generate-video", async (req, res) => {
       return res.status(400).send("Missing script");
     }
 
-    const outputPath = path.join(process.cwd(), "viral-reel.mp4");
-    const imagePath = path.join(process.cwd(), "sample.mp4");
-    const audioPath = path.join(process.cwd(), "voice.mp3");
+    const inputVideo = path.join(process.cwd(), "sample.mp4");
+    const inputAudio = path.join(process.cwd(), "voice.mp3");
+    const outputVideo = path.join(process.cwd(), "viral-reel.mp4");
 
-    if (!fs.existsSync(imagePath)) {
+    if (!fs.existsSync(inputVideo)) {
       return res.status(500).send("sample.mp4 missing");
     }
 
-    if (!fs.existsSync(audioPath)) {
+    if (!fs.existsSync(inputAudio)) {
       return res.status(500).send("voice.mp3 missing");
     }
 
     ffmpeg()
-      .input(imagePath)
-      .input(audioPath)
+      .input(inputVideo)
+      .input(inputAudio)
       .outputOptions([
         "-c:v libx264",
         "-c:a aac",
         "-shortest",
-        "-pix_fmt yuv420p"
+        "-pix_fmt yuv420p",
       ])
-      .save(outputPath)
+      .save(outputVideo)
       .on("end", () => {
-        const videoBuffer = fs.readFileSync(outputPath);
+        const videoBuffer = fs.readFileSync(outputVideo);
         res.setHeader("Content-Type", "video/mp4");
         res.setHeader(
           "Content-Disposition",
