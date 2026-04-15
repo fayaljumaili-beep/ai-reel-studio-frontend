@@ -2,85 +2,48 @@
 
 import { useState } from "react";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://your-railway-backend.up.railway.app";
+const API =
+  "https://ai-reel-studio-frontend-production.up.railway.app";
 
 export default function Page() {
   const [topic, setTopic] = useState("");
   const [generatedScript, setGeneratedScript] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
 
   const generateScript = async () => {
-    try {
-      setIsLoading(true);
+    const res = await fetch(`${API}/generate-script`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ topic }),
+    });
 
-      const res = await fetch(`${API_URL}/generate-script`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ topic }),
-      });
-
-      if (!res.ok) throw new Error("Script generation failed");
-
-      const data = await res.json();
-      setGeneratedScript(data.script);
-    } catch (error) {
-      console.error(error);
-      alert("Script generation failed");
-    } finally {
-      setIsLoading(false);
-    }
+    const data = await res.json();
+    setGeneratedScript(data.script);
   };
 
   const generateVoiceover = async () => {
-    try {
-      if (!generatedScript) {
-        alert("Generate script first");
-        return;
-      }
-
-      const res = await fetch(`${API_URL}/voiceover`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          script: generatedScript,
-        }),
-      });
-
-      if (!res.ok) {
-        throw new Error("Voiceover failed");
-      }
-
-      const data = await res.json();
-      console.log("VOICEOVER SUCCESS:", data);
-      alert("Voiceover generated successfully");
-    } catch (error) {
-      console.error(error);
-      alert("Voiceover failed");
-    }
+    await fetch(`${API}/voiceover`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        script: generatedScript,
+      }),
+    });
   };
 
   const downloadNarratedReel = async () => {
-  try {
-    const response = await fetch(
-      "https://ai-reel-studio-frontend-production.up.railway.app/generate-video",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          script: generatedScript,
-        }),
-      }
-    );
-
-    if (!response.ok) {
-      throw new Error("Video generation failed");
-    }
+    const response = await fetch(`${API}/generate-video`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        script: generatedScript,
+      }),
+    });
 
     const blob = await response.blob();
     const url = window.URL.createObjectURL(blob);
@@ -91,10 +54,7 @@ export default function Page() {
     a.click();
 
     window.URL.revokeObjectURL(url);
-  } catch (error) {
-    alert("Video generation failed");
-  }
-};
+  };
 
   return (
     <main style={{ padding: "40px", fontFamily: "serif" }}>
@@ -115,21 +75,18 @@ export default function Page() {
       />
 
       <div style={{ marginTop: "20px", display: "flex", gap: "10px" }}>
-  <button onClick={generateScript}>
-    Generate Premium Reel Script
-  </button>
+        <button onClick={generateScript}>
+          Generate Premium Reel Script
+        </button>
 
-  <button onClick={generateVoiceover}>
-    Generate AI Voiceover
-  </button>
+        <button onClick={generateVoiceover}>
+          Generate AI Voiceover
+        </button>
 
-  <button
-    type="button"
-    onClick={downloadNarratedReel}
-  >
-    Download Narrated Reel
-  </button>
-</div>
+        <button type="button" onClick={downloadNarratedReel}>
+          Download Narrated Reel
+        </button>
+      </div>
 
       <h2 style={{ marginTop: "40px" }}>Generated Output</h2>
       <pre style={{ whiteSpace: "pre-wrap" }}>{generatedScript}</pre>
