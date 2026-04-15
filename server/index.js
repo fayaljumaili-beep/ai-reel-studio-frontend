@@ -1,90 +1,76 @@
-import express from "express";
-import cors from "cors";
-import dotenv from "dotenv";
-import ffmpeg from "fluent-ffmpeg";
-import fs from "fs";
-import path from "path";
-import { fileURLToPath } from "url";
+// ✅ FINAL STABLE FIXES FOR server/index.js
+    // Replace this with your real TTS provider request
+    const response = await fetch(TTS_URL, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${process.env.TTS_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ text: script }),
+    });
 
-dotenv.config();
+    if (!response.ok) {
+      throw new Error(`TTS failed: ${response.status}`);
+    }
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+    const audioBuffer = Buffer.from(await response.arrayBuffer());
 
-const app = express();
+    // ✅ CRITICAL FIX: fully await disk write
+    await fsp.writeFile("voice.mp3", audioBuffer);
 
-app.use(cors());
-app.use(express.json({ limit: "10mb" }));
-app.use(express.static(__dirname));
+    const stats = await fsp.stat("voice.mp3");
+    console.log("VOICE SIZE:", stats.size);
 
-app.get("/", (_, res) => {
-  res.send("🚀 AI Reel backend running");
-});
+    if (stats.size === 0) {
+      throw new Error("voice.mp3 was saved empty");
+    }
 
-app.post("/generate-script", async (req, res) => {
-  try {
-    const topic = req.body?.topic || "How to become successful";
-
-    const script = `
-🎬 Viral Faceless Reel Script: "${topic}"
-
-1. Hook (0–3s)
-Show an emotional opener related to the topic.
-
-2. Main Point (3–8s)
-Reveal the first powerful lesson.
-
-3. Value (8–15s)
-Show transformation, proof, or insight.
-
-4. CTA (15–20s)
-Ask users to follow for more.
-`;
-
-    res.json({ script });
+    res.json({ success: true, size: stats.size });
   } catch (error) {
-    console.error("SCRIPT ERROR:", error);
-    res.status(500).json({ error: "Script generation failed" });
+    console.error("VOICEOVER ERROR:", error);
+    res.status(500).json({ error: "Voice generation failed" });
   }
 });
 
-app.post("/voiceover", async (req, res) => {
-  try {
-    const host = req.get("host");
-    const protocol = req.headers["x-forwarded-proto"] || "https";
-    const voiceUrl = `${protocol}://${host}/voice.mp3`;
-
-    res.json({ voiceUrl });
-  } catch (error) {
-    console.error("VOICE ERROR:", error);
-    res.status(500).send("Voice generation failed");
-  }
-});
-
+// --------------------------------------------------
+// ✅ GENERATE VIDEO ROUTE (FULL VALIDATION VERSION)
+// --------------------------------------------------
+// Replace your existing /generate-video route with this safer version
 app.post("/generate-video", async (req, res) => {
   try {
-    const samplePath = path.join(__dirname, "sample.mp4");
-    const voicePath = path.join(__dirname, "voice.mp3");
-    const outputPath = path.join(__dirname, "viral-reel.mp4");
+    const videoPath = path.resolve("sample.mp4");
+    const voicePath = path.resolve("voice.mp3");
+    const outputPath = path.resolve("final-reel.mp4");
 
-    ffmpeg()
-      .input(samplePath)
+    // ✅ Validate required files exist
+    if (!fs.existsSync(videoPath)) {
+      throw new Error(`Missing sample video: ${videoPath}`);
+    }
+
+    if (!fs.existsSync(voicePath)) {
+      throw new Error(`Missing voice file: ${voicePath}`);
+    }
+
+    const voiceStats = await fsp.stat(voicePath);
+    console.log("MP3 SIZE:", voiceStats.size);
+
+    // ✅ FINAL RUNTIME FIX: catch empty MP3s before ffmpeg
+    if (voiceStats.size === 0) {
+      throw new Error("voice.mp3 is empty");
+    }
+
+    ffmpeg(videoPath)
       .input(voicePath)
       .outputOptions([
         "-map 0:v:0",
         "-map 1:a:0",
-        "-vf scale=720:1280",
-        "-r 30",
-        "-c:v libx264",
-        "-preset medium",
-        "-pix_fmt yuv420p",
-        "-movflags +faststart",
+        "-c:v copy",
         "-c:a aac",
-        "-b:a 192k",
-        "-shortest"
+        "-shortest",
       ])
-      .on("end", () => {
-        const videoBuffer = fs.readFileSync(outputPath);
+      .save(outputPath)
+      .on("end", async () => {
+        const videoBuffer = await fsp.readFile(outputPath);
 
         res.setHeader("Content-Type", "video/mp4");
         res.setHeader(
@@ -97,16 +83,9 @@ app.post("/generate-video", async (req, res) => {
       .on("error", (err) => {
         console.error("VIDEO ERROR:", err.message);
         res.status(500).send("Video generation failed");
-      })
-      .save(outputPath);
+      });
   } catch (error) {
     console.error("ROUTE ERROR:", error);
     res.status(500).send("Video generation failed");
   }
-});
-
-const PORT = process.env.PORT || 8080;
-
-app.listen(PORT, () => {
-  console.log("🚀 Server running on port " + PORT);
 });
