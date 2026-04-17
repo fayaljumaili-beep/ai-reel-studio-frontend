@@ -4,11 +4,13 @@ import { useState } from "react";
 
 export default function PremiumDashboard() {
   const [topic, setTopic] = useState("");
+  const [script, setScript] = useState("");
   const [loading, setLoading] = useState(false);
 
   const handleGenerateScript = async () => {
     try {
       setLoading(true);
+      setScript("");
 
       const res = await fetch("/api/generate-script", {
         method: "POST",
@@ -20,62 +22,48 @@ export default function PremiumDashboard() {
 
       const data = await res.json();
 
-      console.log("SCRIPT RESPONSE:", data);
-
-      alert(data.script || "No script returned");
+      setScript(data.script);
     } catch (err) {
       console.error(err);
-      alert("❌ Script generation failed");
+      setScript("❌ Failed to generate script");
     } finally {
       setLoading(false);
     }
   };
 
-  const handleVoiceover = () => {
-    alert("🎤 Voiceover coming next (we'll wire this after)");
-  };
-
-  const handleDownload = () => {
-    alert("⬇️ Download coming next (we'll wire this after)");
-  };
-
   return (
-    <section className="p-6">
-      <h1 className="text-2xl font-bold mb-4">AI Reel Studio</h1>
+    <section className="min-h-screen bg-zinc-950 text-white p-8">
+      <div className="max-w-3xl mx-auto">
 
-      <p className="mb-6">
-        Turn any topic into a premium short-form content machine.
-      </p>
+        <h1 className="text-3xl font-bold mb-2">AI Reel Studio</h1>
+        <p className="text-zinc-400 mb-6">
+          Generate viral short-form scripts instantly
+        </p>
 
-      <input
-        type="text"
-        placeholder="Enter topic (e.g. how to become successful)"
-        value={topic}
-        onChange={(e) => setTopic(e.target.value)}
-        className="border p-3 rounded w-full mb-4"
-      />
+        {/* INPUT */}
+        <input
+          type="text"
+          placeholder="Enter topic (e.g. how to become successful)"
+          value={topic}
+          onChange={(e) => setTopic(e.target.value)}
+          className="w-full p-4 rounded-xl bg-zinc-800 border border-zinc-700 mb-4"
+        />
 
-      <div className="flex gap-4">
+        {/* BUTTON */}
         <button
           onClick={handleGenerateScript}
-          className="rounded-2xl bg-zinc-800 px-4 py-3 font-semibold text-white"
+          className="w-full bg-white text-black font-semibold py-3 rounded-xl hover:bg-zinc-200 transition"
         >
           {loading ? "Generating..." : "Generate Premium Script"}
         </button>
 
-        <button
-          onClick={handleVoiceover}
-          className="rounded-2xl bg-blue-600 px-4 py-3 font-semibold text-white"
-        >
-          Generate AI Voiceover
-        </button>
+        {/* OUTPUT */}
+        {script && (
+          <div className="mt-6 bg-zinc-900 border border-zinc-800 p-6 rounded-xl whitespace-pre-wrap">
+            {script}
+          </div>
+        )}
 
-        <button
-          onClick={handleDownload}
-          className="rounded-2xl bg-emerald-500 px-4 py-3 font-semibold text-white"
-        >
-          Download Narrated Reel
-        </button>
       </div>
     </section>
   );
